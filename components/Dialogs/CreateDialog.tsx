@@ -1,13 +1,15 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Button, message, Modal, Input as AntInput } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { Icon } from '@/components/Icon'
 import { useAppStore } from '@/store/useAppStore'
 import { useTaskStore } from '@/store/useTaskStore'
 import { useCreateStore } from '@/store/useCreateStore'
-import { checkVideoFormat, d2t, getSize } from '@/lib/index'
+import { checkSubFormat, checkVideoFormat, d2t, getSize } from '@/lib/index'
+import { file2sub } from '@/lib/subtitle'
+import { useTranscribe } from '@/hooks/useTranscribe'
 
 export function CreateDialog() {
   const { t } = useTranslation()
@@ -23,11 +25,31 @@ export function CreateDialog() {
   const offline = useCreateStore(state => state.task.offline)
   const reset = useCreateStore(state => state.reset)
   const onFileChange = useCreateStore(state => state.onFileChange)
+  const subtitleType = useCreateStore(state => state.task.option.subtitleType)
+  const setSubtitleType = useCreateStore(state => state.setSubtitleType)
+  const subtitleFile = useCreateStore(state => state.task.offline.subtitleFile)
+  const subtitleCount = useCreateStore(state => state.task.subtitle.length)
+  const setLocalSubtitle = useCreateStore(state => state.setLocalSubtitle)
+  const { transcribeAudio } = useTranscribe()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const subtitleFileInputRef = useRef<HTMLInputElement>(null)
+  const [transcribing, setTranscribing] = useState(false)
 
   function close() {
+    if (transcribing) return
     setPopup('create', false)
+  }
+
+  async function handleSubtitleFile(files: FileList | null) {
+    if (!files?.length) return
+    const file = files[0]
+    if (!checkSubFormat(file)) {
+      message.error(t('create.formatErr'))
+      return
+    }
+    const subData = await file2sub(file)
+    setLocalSubtitle(file, subData)
   }
 
   async function handleFiles(files: FileList | null) {
@@ -54,12 +76,34 @@ export function CreateDialog() {
     }
 
     const task = useCreateStore.getState().task
+
+    if (task.option.subtitleType === 2 && !task.offline.subtitleFile) {
+      message.error(t('create.selectSubtitle'))
+      return
+    }
+
     if (task.offline.canPlay === false) {
       message.error(t('create.videoNotPlay'))
       return
     }
 
-    task.subtitle = []
+    if (task.option.subtitleType !== 2) {
+      task.subtitle = []
+    }
+
+    if (task.option.subtitleType === 1 && task.offline.videoFile) {
+      setTranscribing(true)
+      try {
+        task.subtitle = await transcribeAudio(task.offline.videoFile)
+      }
+      catch (error) {
+        setTranscribing(false)
+        message.error(error instanceof Error ? error.message : String(error))
+        return
+      }
+      setTranscribing(false)
+    }
+
     useTaskStore.getState().create(task)
     close()
     reset()
@@ -175,23 +219,99 @@ export function CreateDialog() {
                 )}
           </div>
         </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 px-4 text-[13px] text-white/70">
+            <Icon name="fa-subtitles" />
+            {t('create.subtitle')}
+          </div>
+          <div className="px-4">
+            <div className="flex justify-between rounded border border-white/20 bg-white/5 text-[13px]">
+              <div
+                className={`relative flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-l-sm py-2 transition duration-200 ${
+                  subtitleType === 1
+                    ? 'bg-[#3662e3] font-semibold text-white after:absolute after:-bottom-1.5 after:left-1/2 after:h-0 after:w-0 after:-translate-x-1/2 after:border-l-[6px] after:border-r-[6px] after:border-t-[6px] after:border-l-transparent after:border-r-transparent after:border-t-[#3662e3]'
+                    : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`}
+                onClick={() => setSubtitleType(1)}
+              >
+                <Icon name="fa-robot" className="text-sm" />
+                {t('type.subtitle.1')}
+              </div>
+              <div
+                className={`relative flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-r-sm border-l border-white/20 py-2 transition duration-200 ${
+                  subtitleType === 2
+                    ? 'bg-[#3662e3] font-semibold text-white after:absolute after:-bottom-1.5 after:left-1/2 after:h-0 after:w-0 after:-translate-x-1/2 after:border-l-[6px] after:border-r-[6px] after:border-t-[6px] after:border-l-transparent after:border-r-transparent after:border-t-[#3662e3]'
+                    : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`}
+                onClick={() => setSubtitleType(2)}
+              >
+                <Icon name="fa-cloud-arrow-up" className="text-sm" />
+                {t('type.subtitle.2')}
+              </div>
+            </div>
+
+            {subtitleType === 1 && (
+              <div className="relative mt-4 flex h-11 items-center justify-center gap-2 rounded border border-dashed border-white/20 bg-white/5 px-2 text-center text-[13px] text-white/60">
+                <Icon name="fa-wand-magic-sparkles" />
+                Transcribes speech from your video with OpenAI Whisper (~25MB file limit)
+              </div>
+            )}
+
+            {subtitleType === 2 && (
+              <div
+                className="relative mt-4 flex h-11 cursor-pointer justify-center rounded border border-dashed border-white/20 bg-white/5 text-[13px] leading-[2.75rem] transition duration-300 hover:border-white/50 hover:bg-white/10"
+                onClick={() => subtitleFileInputRef.current?.click()}
+              >
+                <input
+                  ref={subtitleFileInputRef}
+                  type="file"
+                  accept=".srt,.vtt,.ass,.json"
+                  className="hidden"
+                  onChange={e => handleSubtitleFile(e.target.files)}
+                />
+                {subtitleFile
+                  ? (
+                      <div className="flex w-full truncate text-white/70 hover:text-white">
+                        <div className="w-0 flex-1 truncate px-2">
+                          {t('create.file')}
+                          {' '}
+                          {subtitleFile.name}
+                        </div>
+                        <div className="w-[25%] truncate border-l border-dashed border-white/20 px-2">
+                          {t('create.length')}
+                          {' '}
+                          {subtitleCount}
+                        </div>
+                        <div className="w-[20%] truncate border-l border-dashed border-white/20 px-2">
+                          {t('create.size')}
+                          {' '}
+                          {getSize(subtitleFile.size)}
+                        </div>
+                      </div>
+                    )
+                  : <div className="text-white/70 hover:text-white">{t('create.selectSubtitle')}</div>}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-between border-t border-black/50 bg-black/30 px-4 py-3">
         <div className="flex items-center gap-1">
-          <Button size="large" onClick={close}>
+          <Button size="large" disabled={transcribing} onClick={close}>
             <Icon name="fa-xmark" className="mr-2 text-xs" />
             {t('create.cancel')}
           </Button>
-          <Button size="large" onClick={() => reset()}>
+          <Button size="large" disabled={transcribing} onClick={() => reset()}>
             <Icon name="fa-broom-wide" className="mr-2 text-xs" />
             {t('create.reset')}
           </Button>
         </div>
         <div className="flex items-center gap-4">
-          <Button type="primary" size="large" disabled={analyzing} onClick={onSubmit}>
+          <Button type="primary" size="large" loading={transcribing} disabled={analyzing} onClick={onSubmit}>
             <Icon name="fa-rocket-launch" className="mr-2 text-sm" />
-            {t('create.confirm')}
+            {transcribing ? t('create.audioTranscribing') : t('create.confirm')}
           </Button>
         </div>
       </div>

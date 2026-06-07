@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import cloneDeep from 'lodash/cloneDeep'
 import { EXTEND } from '@/config/EXTEND'
-import type { TaskData } from '@/config/EXTEND'
+import type { RawSub, TaskData } from '@/config/EXTEND'
 import { fileToBlobUrl } from '@/lib/index'
 import { getVideoInfo } from '@/lib/video'
 
@@ -16,6 +16,9 @@ interface CreateState {
   setName: (name: string) => void
   reset: () => void
   onFileChange: (file: File) => Promise<boolean>
+  setSubtitleType: (type: number) => void
+  setLocalSubtitle: (file: File, subtitle: RawSub[]) => void
+  setSubtitle: (subtitle: RawSub[]) => void
 }
 
 function initialTask(): TaskData {
@@ -65,4 +68,18 @@ export const useCreateStore = create<CreateState>((set, get) => ({
     set({ task, uploaded: true })
     return true
   },
+
+  setSubtitleType: type => set(state => ({
+    task: { ...state.task, option: { ...state.task.option, subtitleType: type } },
+  })),
+  setLocalSubtitle: (file, subtitle) => set(state => ({
+    task: {
+      ...state.task,
+      subtitle,
+      offline: { ...state.task.offline, subtitleFile: file },
+    },
+  })),
+  setSubtitle: subtitle => set(state => ({
+    task: { ...state.task, subtitle },
+  })),
 }))
