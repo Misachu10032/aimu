@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Button, message, Modal, Input as AntInput } from 'antd'
+import { App, Button, Modal, Input as AntInput } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { Icon } from '@/components/Icon'
 import { useAppStore } from '@/store/useAppStore'
@@ -13,6 +13,7 @@ import { useTranscribe } from '@/hooks/useTranscribe'
 
 export function CreateDialog() {
   const { t } = useTranslation()
+  const { message } = App.useApp()
   const open = useAppStore(state => state.popup.create)
   const setPopup = useAppStore(state => state.setPopup)
 

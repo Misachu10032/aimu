@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { message } from 'antd'
+import { App } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store/useAppStore'
 import { useTaskStore } from '@/store/useTaskStore'
@@ -20,6 +20,7 @@ function magnetically(time: number, closeTime: number | null | undefined): numbe
 
 export function FooterItem({ item }: { item: Sub }) {
   const { t } = useTranslation()
+  const { message } = App.useApp()
   const itemRef = useRef<HTMLDivElement>(null)
   const isDraggingRef = useRef(false)
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)

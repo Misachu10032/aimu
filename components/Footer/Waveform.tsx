@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from 'react'
 import WFPlayer from 'wfplayer'
 import { useTranslation } from 'react-i18next'
-import { message } from 'antd'
+import { App } from 'antd'
 import { useTaskStore } from '@/store/useTaskStore'
 import { OPTION } from '@/config/OPTION'
 import { sleep } from '@/lib/index'
 
 export function FooterWaveform() {
   const { t } = useTranslation()
+  const { message } = App.useApp()
   const containerRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(false)
   const videoBlobUrl = useTaskStore(state => state.task.offline.videoBlobUrl)

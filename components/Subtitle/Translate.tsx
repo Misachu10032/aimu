@@ -1,6 +1,6 @@
 'use client'
 
-import { Button, message, Select } from 'antd'
+import { App, Button, Select } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { Icon } from '@/components/Icon'
 import { useAppStore } from '@/store/useAppStore'
@@ -10,6 +10,7 @@ import { useTranslate } from '@/hooks/useTranslate'
 
 export function SubtitleTranslate() {
   const { t } = useTranslation()
+  const { message } = App.useApp()
   const tooltip = useAppStore(state => state.option.tooltip)
   const translateTo = useTaskStore(state => state.task.option.translateTo)
   const setTaskOption = useTaskStore(state => state.setTaskOption)

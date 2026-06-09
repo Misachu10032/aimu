@@ -1,6 +1,6 @@
 'use client'
 
-import { Dropdown, message } from 'antd'
+import { App, Dropdown } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { Icon } from '@/components/Icon'
 import { useAppStore } from '@/store/useAppStore'
@@ -45,6 +45,7 @@ function CreateButton() {
 
 function ExportButton() {
   const { t } = useTranslation()
+  const { message } = App.useApp()
   const taskId = useTaskStore(state => state.task.id)
   const setPopup = useAppStore(state => state.setPopup)
   return (
@@ -89,6 +90,7 @@ function RedoButton() {
 
 function KeyboardButton() {
   const { t } = useTranslation()
+  const { message } = App.useApp()
   return (
     <HeaderKey content={t('header.keyboard')} onClick={() => message.info(t('header.keyboard'))}>
       <Icon name="fa-keyboard" className="text-xs" />

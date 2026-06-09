@@ -1,6 +1,6 @@
 'use client'
 
-import { ConfigProvider, theme } from 'antd'
+import { App, ConfigProvider, theme } from 'antd'
 import { I18nextProvider } from 'react-i18next'
 import i18n from '@/i18n'
 
@@ -21,7 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           },
         }}
       >
-        {children}
+        <App>{children}</App>
       </ConfigProvider>
     </I18nextProvider>
   )
