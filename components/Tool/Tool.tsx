@@ -5,6 +5,7 @@ import { Icon } from '@/components/Icon'
 import { useAppStore } from '@/store/useAppStore'
 import type { AppOption } from '@/store/useAppStore'
 import { ToolStyle } from './Style'
+import { ToolApi } from './Api'
 import { ToolPlaceholder } from './Placeholder'
 
 const TABS: { key: AppOption['tab'], icon: string, labelKey: string, label?: string }[] = [
@@ -60,7 +61,7 @@ export function Tool() {
         {tab === 'style' && <ToolStyle />}
         {tab === 'utils' && <ToolPlaceholder label={t('tool.utils')} />}
         {tab === 'option' && <ToolPlaceholder label={t('tool.option')} />}
-        {tab === 'api' && <ToolPlaceholder label="API" />}
+        {tab === 'api' && <ToolApi />}
       </div>
     </div>
   )
