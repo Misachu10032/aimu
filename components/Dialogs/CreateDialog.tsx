@@ -9,6 +9,7 @@ import { useTaskStore } from '@/store/useTaskStore'
 import { useCreateStore } from '@/store/useCreateStore'
 import { checkSubFormat, checkVideoFormat, d2t, getSize } from '@/lib/index'
 import { file2sub } from '@/lib/subtitle'
+import { extractAudio } from '@/lib/ffmpeg'
 import { useTranscribe } from '@/hooks/useTranscribe'
 
 export function CreateDialog() {
@@ -36,10 +37,31 @@ export function CreateDialog() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const subtitleFileInputRef = useRef<HTMLInputElement>(null)
   const [transcribing, setTranscribing] = useState(false)
+  const [extracting, setExtracting] = useState(false)
+  const [extractProgress, setExtractProgress] = useState(0)
+  const [extractedAudio, setExtractedAudio] = useState<File | null>(null)
 
   function close() {
     if (transcribing) return
     setPopup('create', false)
+  }
+
+  async function handleExtractAudio() {
+    if (!offline.videoFile || extracting) return
+    setExtracting(true)
+    setExtractProgress(0)
+    try {
+      const file = await extractAudio(offline.videoFile, offline.videoDuration, ({ progress }) => {
+        if (progress >= 0) setExtractProgress(progress)
+      })
+      setExtractedAudio(file)
+    }
+    catch (error) {
+      message.error(error instanceof Error ? error.message : String(error))
+    }
+    finally {
+      setExtracting(false)
+    }
   }
 
   async function handleSubtitleFile(files: FileList | null) {
@@ -60,6 +82,7 @@ export function CreateDialog() {
       message.error(t('create.formatErr'))
       return
     }
+    setExtractedAudio(null)
     try {
       const ok = await onFileChange(file)
       if (!ok) message.error(t('create.videoNotPlay'))
@@ -95,7 +118,16 @@ export function CreateDialog() {
     if (task.option.subtitleType === 1 && task.offline.videoFile) {
       setTranscribing(true)
       try {
-        task.subtitle = await transcribeAudio(task.offline.videoFile)
+        let audioFile: File = extractedAudio || task.offline.videoFile
+        if (!extractedAudio) {
+          try {
+            audioFile = await extractAudio(task.offline.videoFile, task.offline.videoDuration)
+          }
+          catch (error) {
+            console.error('ffmpeg audio extraction failed, sending raw file instead', error)
+          }
+        }
+        task.subtitle = await transcribeAudio(audioFile)
       }
       catch (error) {
         setTranscribing(false)
@@ -190,7 +222,7 @@ export function CreateDialog() {
                         </div>
                       </div>
                       <div className="flex items-center justify-end">
-                        <Button size="small" onClick={() => reset()}>
+                        <Button size="small" onClick={() => { reset(); setExtractedAudio(null) }}>
                           <Icon name="fa-retweet" className="mr-1 text-sm" />
                           {t('create.reselect')}
                         </Button>
@@ -253,9 +285,27 @@ export function CreateDialog() {
             </div>
 
             {subtitleType === 1 && (
-              <div className="relative mt-4 flex h-11 items-center justify-center gap-2 rounded border border-dashed border-white/20 bg-white/5 px-2 text-center text-[13px] text-white/60">
-                <Icon name="fa-wand-magic-sparkles" />
-                Transcribes speech from your video with OpenAI Whisper (~25MB file limit)
+              <div className="relative mt-4 flex flex-col items-center justify-center gap-2 rounded border border-dashed border-white/20 bg-white/5 px-2 py-3 text-center text-[13px] text-white/60">
+                <div className="flex items-center gap-2">
+                  <Icon name="fa-wand-magic-sparkles" />
+                  Extracts audio from your video (ffmpeg.wasm) and transcribes it with OpenAI Whisper
+                </div>
+                <Button
+                  size="small"
+                  loading={extracting}
+                  disabled={!uploaded || extracting}
+                  onClick={handleExtractAudio}
+                >
+                  <Icon name="fa-file-audio" className="mr-1 text-xs" />
+                  {extracting ? `Extracting ${Math.floor(extractProgress * 100)}%` : 'Extract audio file'}
+                </Button>
+                {extractedAudio && !extracting && (
+                  <div className="text-white/80">
+                    {extractedAudio.name}
+                    {' · '}
+                    {getSize(extractedAudio.size)}
+                  </div>
+                )}
               </div>
             )}
 
@@ -304,7 +354,7 @@ export function CreateDialog() {
             <Icon name="fa-xmark" className="mr-2 text-xs" />
             {t('create.cancel')}
           </Button>
-          <Button size="large" disabled={transcribing} onClick={() => reset()}>
+          <Button size="large" disabled={transcribing} onClick={() => { reset(); setExtractedAudio(null) }}>
             <Icon name="fa-broom-wide" className="mr-2 text-xs" />
             {t('create.reset')}
           </Button>

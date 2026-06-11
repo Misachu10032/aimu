@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { App, Dropdown } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { Icon } from '@/components/Icon'
@@ -8,6 +9,10 @@ import { useTaskStore } from '@/store/useTaskStore'
 import { I18N } from '@/config/I18N'
 import i18n from '@/i18n'
 import packageJson from '@/package.json'
+import { download } from '@/lib/index'
+import { sub2ass } from '@/lib/subtitle'
+import { burnSubtitles } from '@/lib/ffmpeg'
+import { useLoadFonts } from '@/hooks/useLoadFonts'
 import { HeaderKey, HeaderMenu } from './Key'
 
 function isMacOS(): boolean {
@@ -48,20 +53,71 @@ function ExportButton() {
   const { message } = App.useApp()
   const taskId = useTaskStore(state => state.task.id)
   const setPopup = useAppStore(state => state.setPopup)
+  const { loadFonts } = useLoadFonts()
+  const [burning, setBurning] = useState(false)
+  const progressKey = 'export-progress'
+
+  async function onExport() {
+    if (burning) return
+
+    if (!taskId) {
+      setPopup('create', true)
+      message.warning(t('create.pleaseCreateTask'))
+      return
+    }
+
+    const task = useTaskStore.getState().task
+
+    if (!task.subtitle.length) {
+      message.warning(t('export.subtitleEmpty'))
+      return
+    }
+
+    if (!task.offline.videoFile) {
+      message.error(t('create.videoNotPlay'))
+      return
+    }
+
+    setBurning(true)
+    message.open({ key: progressKey, type: 'loading', content: `${t('export.exporting')} 0%`, duration: 0 })
+
+    try {
+      const fonts = await loadFonts([task.style.Fontname])
+      const assText = sub2ass(task)
+      const duration = useTaskStore.getState().duration || task.offline.videoDuration
+
+      const file = await burnSubtitles(
+        {
+          videoFile: task.offline.videoFile,
+          assText,
+          fonts,
+          burnPreset: task.option.burnPreset,
+          burnSize: task.option.burnSize,
+          duration,
+        },
+        ({ progress }) => {
+          if (progress >= 0) {
+            message.open({ key: progressKey, type: 'loading', content: `${t('export.exporting')} ${Math.floor(progress * 100)}%`, duration: 0 })
+          }
+        },
+      )
+
+      message.open({ key: progressKey, type: 'success', content: t('export.success'), duration: 2 })
+      const url = URL.createObjectURL(file)
+      download(url, `${task.option.name || Date.now()}.mp4`)
+    }
+    catch (error) {
+      message.open({ key: progressKey, type: 'error', content: error instanceof Error ? error.message : String(error), duration: 3 })
+    }
+    finally {
+      setBurning(false)
+    }
+  }
+
   return (
-    <HeaderMenu
-      onClick={() => {
-        if (taskId) {
-          message.info('Export is coming soon')
-        }
-        else {
-          setPopup('create', true)
-          message.warning(t('create.pleaseCreateTask'))
-        }
-      }}
-    >
-      <Icon name="fa-cloud-arrow-down" className="text-xs" />
-      {t('header.export')}
+    <HeaderMenu onClick={onExport}>
+      <Icon name={burning ? 'fa-spinner-third' : 'fa-cloud-arrow-down'} className={`text-xs ${burning ? 'animate-spin' : ''}`} />
+      {burning ? t('export.exporting') : t('header.export')}
     </HeaderMenu>
   )
 }
