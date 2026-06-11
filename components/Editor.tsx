@@ -6,6 +6,7 @@ import { Tool } from '@/components/Tool/Tool'
 import { Subtitle } from '@/components/Subtitle/Subtitle'
 import { Footer } from '@/components/Footer/Footer'
 import { CreateDialog } from '@/components/Dialogs/CreateDialog'
+import { ExportDialog } from '@/components/Dialogs/ExportDialog'
 import { useAppStore } from '@/store/useAppStore'
 import { useKeyboard } from '@/hooks/useKeyboard'
 import { useSubtitleHistory } from '@/hooks/useSubtitleHistory'
@@ -31,6 +32,7 @@ export default function Editor() {
       </div>
       <Footer className="h-40" />
       <CreateDialog />
+      <ExportDialog />
     </div>
   )
 }
