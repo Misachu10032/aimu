@@ -95,7 +95,11 @@ async function getFFmpeg(onLog?: (message: string) => void): Promise<FFmpegLike>
     await ff.load({ coreURL, wasmURL, workerURL })
     ffmpegInstance = ff
     return ff
-  })()
+  })().catch((error) => {
+    // Let a future call retry instead of permanently replaying this rejection.
+    loadingPromise = null
+    throw error
+  })
 
   return loadingPromise
 }
@@ -228,6 +232,10 @@ export async function burnSubtitles(
         '-max_muxing_queue_size', '1024',
         '-c:a', 'copy',
         '-preset', burnPreset,
+        // libx264's internal pthread frame-threading deadlocks inside
+        // ffmpeg-core-mt's Worker pool on this inline (non-isolated-page)
+        // architecture. Force single-threaded x264 to avoid it.
+        '-threads', '1',
         output,
       ],
     })
@@ -261,6 +269,9 @@ export async function transcodeVideo(
         '-i', videoFile.name,
         '-c:v', 'libx264',
         '-c:a', 'aac',
+        // see burnSubtitles() for why: libx264's internal pthread
+        // frame-threading deadlocks in this environment otherwise.
+        '-threads', '1',
         output,
       ],
     })
