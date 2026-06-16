@@ -150,9 +150,16 @@ async function runFFmpeg({
   }
 }
 
-async function writeInputFile(ff: FFmpegLike, file: File, name: string) {
+async function writeInputFile(ff: FFmpegLike, file: File | string, name: string) {
   const { fetchFile } = window.FFmpegUtil!
   await ff.writeFile(name, await fetchFile(file))
+}
+
+function getInputName(source: File | string): string {
+  if (typeof source === 'string') {
+    return source.split('?')[0].split('#')[0].split('/').pop() || 'input.mp4'
+  }
+  return source.name
 }
 
 function blobToFile(blob: Blob, fileName: string): File {
@@ -200,7 +207,7 @@ export async function burnSubtitles(
     burnSize,
     duration,
   }: {
-    videoFile: File
+    videoFile: File | string
     assText: string
     fonts: { buffer: ArrayBuffer, path: string }[]
     burnPreset: string
@@ -209,7 +216,8 @@ export async function burnSubtitles(
   onProgress?: FFmpegProgressCallback,
 ): Promise<File> {
   const ff = await getFFmpeg(message => onProgress?.({ progress: 0, message }))
-  await writeInputFile(ff, videoFile, videoFile.name)
+  const inputName = getInputName(videoFile)
+  await writeInputFile(ff, videoFile, inputName)
 
   const subtitleName = `${Date.now()}.ass`
   await ff.writeFile(subtitleName, new TextEncoder().encode(assText))
@@ -227,7 +235,7 @@ export async function burnSubtitles(
       duration,
       onProgress,
       args: [
-        '-i', videoFile.name,
+        '-i', inputName,
         '-vf', `${scale}ass=${subtitleName}:fontsdir=/tmp`,
         '-max_muxing_queue_size', '1024',
         '-c:a', 'copy',
@@ -242,7 +250,7 @@ export async function burnSubtitles(
     return blobToFile(blob, output)
   }
   finally {
-    await ff.deleteFile(videoFile.name).catch(() => null)
+    await ff.deleteFile(inputName).catch(() => null)
     await ff.deleteFile(subtitleName).catch(() => null)
     for (const font of fonts) {
       await ff.deleteFile(`/tmp/${font.path}`).catch(() => null)

@@ -41,13 +41,14 @@ export function ExportDialog() {
     if (burning) return
 
     const task = useTaskStore.getState().task
+    const videoSource = task.offline.videoFile || task.offline.videoBlobUrl
 
     if (!task.subtitle.length) {
       message.warning(t('export.subtitleEmpty'))
       return
     }
 
-    if (!task.offline.videoFile) {
+    if (!videoSource) {
       message.error(t('create.videoNotPlay'))
       return
     }
@@ -62,7 +63,7 @@ export function ExportDialog() {
 
       const file = await burnSubtitles(
         {
-          videoFile: task.offline.videoFile,
+          videoFile: videoSource,
           assText,
           fonts,
           burnPreset: task.option.burnPreset,

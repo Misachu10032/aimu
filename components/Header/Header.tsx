@@ -45,21 +45,10 @@ function CreateButton() {
 
 function ExportButton() {
   const { t } = useTranslation()
-  const { message } = App.useApp()
-  const taskId = useTaskStore(state => state.task.id)
   const setPopup = useAppStore(state => state.setPopup)
 
-  function onExport() {
-    if (!taskId) {
-      setPopup('create', true)
-      message.warning(t('create.pleaseCreateTask'))
-      return
-    }
-    setPopup('export', true)
-  }
-
   return (
-    <HeaderMenu onClick={onExport}>
+    <HeaderMenu onClick={() => setPopup('export', true)}>
       <Icon name="fa-cloud-arrow-down" className="text-xs" />
       {t('header.export')}
     </HeaderMenu>
